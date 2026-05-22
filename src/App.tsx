@@ -14,6 +14,7 @@ import {
   Sun,
 } from "lucide-react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
+import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 
 import { CodeEditor } from "@/components/code-editor";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -37,6 +38,7 @@ const appTitle = import.meta.env.VITE_APP_TITLE || "MCT Playground";
 const routerBasename = getRouterBasename(import.meta.env.VITE_BASE_PATH);
 const autoRunStorageKey = "mct-playground-auto-run";
 const themeStorageKey = "mct-playground-theme";
+const mainPanelStorageKey = "mct-playground-main-panels";
 const autoRunDelayMs = 400;
 
 type SaveStatus = {
@@ -90,6 +92,11 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>(readInitialTheme);
+  const [isDesktopSplit, setIsDesktopSplit] = useState(readInitialIsDesktopSplit);
+  const panelLayout = useDefaultLayout({
+    id: mainPanelStorageKey,
+    panelIds: ["editors", "preview"],
+  });
   const isDarkTheme = theme === "dark";
   const monacoTheme = isDarkTheme ? "vs-dark" : "vs";
   const hasStarterChanges =
@@ -247,6 +254,16 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   }, [isDarkTheme, theme]);
 
   useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const syncDesktopSplit = () => setIsDesktopSplit(mediaQuery.matches);
+
+    syncDesktopSplit();
+    mediaQuery.addEventListener("change", syncDesktopSplit);
+
+    return () => mediaQuery.removeEventListener("change", syncDesktopSplit);
+  }, []);
+
+  useEffect(() => {
     if (!isAutoRun) {
       return;
     }
@@ -291,6 +308,91 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
       onChange: setJs,
     },
   ];
+  const editorsContent = (
+    <section className="grid gap-4" aria-labelledby="editors-heading">
+      <div className="flex items-center justify-between">
+        <h2 id="editors-heading" className="text-sm font-semibold uppercase text-muted-foreground">
+          Editors
+        </h2>
+        <span className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
+          {sharedToken ? (shareError ? "Decode failed" : "Shared project") : "Placeholder"}
+        </span>
+      </div>
+
+      {sharedToken ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle>Shared project route</CardTitle>
+            <CardDescription>
+              {shareError
+                ? "The shared link could not be decoded."
+                : "Decoded shared project loaded into the editors."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {shareError ? (
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                {shareError}
+              </div>
+            ) : (
+              <code className="block overflow-hidden text-ellipsis whitespace-nowrap rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs text-muted-foreground">
+                {sharedToken}
+              </code>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <div className="grid gap-4 lg:grid-rows-3">
+        {editorPanels.map((panel) => (
+          <CodeEditor
+            key={panel.title}
+            label={panel.title}
+            language={panel.language}
+            theme={monacoTheme}
+            value={panel.value}
+            onChange={panel.onChange}
+            height="18rem"
+          />
+        ))}
+      </div>
+    </section>
+  );
+  const previewContent = (
+    <section className="grid gap-4" aria-labelledby="preview-heading">
+      <div className="flex items-center justify-between">
+        <h2 id="preview-heading" className="text-sm font-semibold uppercase text-muted-foreground">
+          Preview
+        </h2>
+        <div className="flex items-center gap-2">
+          <Eye className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsPreviewFullscreen(true)}
+          >
+            <Maximize2 className="h-4 w-4" aria-hidden="true" />
+            Fullscreen
+          </Button>
+        </div>
+      </div>
+
+      {previewError ? (
+        <ErrorBanner error={previewError} onDismiss={() => setPreviewError(null)} />
+      ) : null}
+
+      <Card className="min-h-[32rem] overflow-hidden">
+        <CardHeader className="border-b border-border">
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>Sandboxed iframe preview</CardDescription>
+        </CardHeader>
+        <CardContent className="h-[26rem] bg-muted/40 p-0">
+          <PreviewFrame ref={previewRef} srcDoc={previewSrcDoc} title={`${title} preview`} />
+        </CardContent>
+      </Card>
+    </section>
+  );
 
   if (isPreviewFullscreen) {
     return (
@@ -419,95 +521,34 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
         onCancel={() => setIsResetConfirmOpen(false)}
       />
 
-      <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.8fr)]">
-        <section className="grid gap-4" aria-labelledby="editors-heading">
-          <div className="flex items-center justify-between">
-            <h2
-              id="editors-heading"
-              className="text-sm font-semibold uppercase text-muted-foreground"
+      <main className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
+        {isDesktopSplit ? (
+          <Group
+            id={mainPanelStorageKey}
+            defaultLayout={panelLayout.defaultLayout}
+            onLayoutChanged={panelLayout.onLayoutChanged}
+            orientation="horizontal"
+            className="min-h-[42rem] gap-4"
+          >
+            <Panel id="editors" defaultSize="56%" minSize="28rem" className="min-w-0">
+              {editorsContent}
+            </Panel>
+            <Separator
+              aria-label="Resize editor and preview panels"
+              className="group flex w-3 items-stretch justify-center rounded-md outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
             >
-              Editors
-            </h2>
-            <span className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
-              {sharedToken ? (shareError ? "Decode failed" : "Shared project") : "Placeholder"}
-            </span>
+              <span className="my-12 w-1 rounded-full bg-border transition-colors group-hover:bg-primary" />
+            </Separator>
+            <Panel id="preview" defaultSize="44%" minSize="22rem" className="min-w-[22rem]">
+              {previewContent}
+            </Panel>
+          </Group>
+        ) : (
+          <div className="grid gap-4">
+            {editorsContent}
+            {previewContent}
           </div>
-
-          {sharedToken ? (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle>Shared project route</CardTitle>
-                <CardDescription>
-                  {shareError
-                    ? "The shared link could not be decoded."
-                    : "Decoded shared project loaded into the editors."}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {shareError ? (
-                  <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-                    {shareError}
-                  </div>
-                ) : (
-                  <code className="block overflow-hidden text-ellipsis whitespace-nowrap rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs text-muted-foreground">
-                    {sharedToken}
-                  </code>
-                )}
-              </CardContent>
-            </Card>
-          ) : null}
-
-          <div className="grid gap-4 lg:grid-rows-3">
-            {editorPanels.map((panel) => (
-              <CodeEditor
-                key={panel.title}
-                label={panel.title}
-                language={panel.language}
-                theme={monacoTheme}
-                value={panel.value}
-                onChange={panel.onChange}
-                height="18rem"
-              />
-            ))}
-          </div>
-        </section>
-
-        <section className="grid gap-4" aria-labelledby="preview-heading">
-          <div className="flex items-center justify-between">
-            <h2
-              id="preview-heading"
-              className="text-sm font-semibold uppercase text-muted-foreground"
-            >
-              Preview
-            </h2>
-            <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsPreviewFullscreen(true)}
-              >
-                <Maximize2 className="h-4 w-4" aria-hidden="true" />
-                Fullscreen
-              </Button>
-            </div>
-          </div>
-
-          {previewError ? (
-            <ErrorBanner error={previewError} onDismiss={() => setPreviewError(null)} />
-          ) : null}
-
-          <Card className="min-h-[32rem] overflow-hidden">
-            <CardHeader className="border-b border-border">
-              <CardTitle>{title}</CardTitle>
-              <CardDescription>Sandboxed iframe preview</CardDescription>
-            </CardHeader>
-            <CardContent className="h-[26rem] bg-muted/40 p-0">
-              <PreviewFrame ref={previewRef} srcDoc={previewSrcDoc} title={`${title} preview`} />
-            </CardContent>
-          </Card>
-        </section>
+        )}
       </main>
     </div>
   );
@@ -547,6 +588,14 @@ function readInitialTheme(): ThemeMode {
   }
 
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function readInitialIsDesktopSplit() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.matchMedia("(min-width: 1024px)").matches;
 }
 
 function createProjectId() {
