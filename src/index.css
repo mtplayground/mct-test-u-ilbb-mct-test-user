@@ -13,6 +13,8 @@
   --secondary-foreground: 222 42% 14%;
   --accent: 198 76% 93%;
   --accent-foreground: 198 89% 25%;
+  --destructive: 0 72% 43%;
+  --destructive-foreground: 0 0% 100%;
   --border: 216 24% 84%;
   --input: 216 24% 84%;
   --ring: 197 89% 36%;
@@ -47,6 +49,8 @@
   --secondary-foreground: 214 32% 91%;
   --accent: 223 25% 24%;
   --accent-foreground: 214 32% 91%;
+  --destructive: 0 62% 50%;
+  --destructive-foreground: 0 0% 100%;
   --border: 223 20% 25%;
   --input: 223 20% 25%;
   --ring: 191 84% 45%;

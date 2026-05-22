@@ -2,6 +2,19 @@ import type { Project } from "@/lib/project";
 
 export type BuildDocumentInput = Pick<Project, "html" | "css" | "js">;
 
+export type PreviewErrorPayload = {
+  message: string;
+  filename?: string;
+  lineno?: number;
+  colno?: number;
+};
+
+export type PreviewErrorMessage = {
+  source: typeof PREVIEW_MESSAGE_SOURCE;
+  type: typeof PREVIEW_ERROR_MESSAGE_TYPE;
+  error: PreviewErrorPayload;
+};
+
 export const PREVIEW_MESSAGE_SOURCE = "mct-playground-preview";
 export const PREVIEW_ERROR_MESSAGE_TYPE = "preview-error";
 
@@ -78,10 +91,38 @@ ${escapeScriptContent(js)}
 </html>`;
 }
 
+export function isPreviewErrorMessage(value: unknown): value is PreviewErrorMessage {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    value.source === PREVIEW_MESSAGE_SOURCE &&
+    value.type === PREVIEW_ERROR_MESSAGE_TYPE &&
+    isRecord(value.error) &&
+    typeof value.error.message === "string" &&
+    isOptionalString(value.error.filename) &&
+    isOptionalNumber(value.error.lineno) &&
+    isOptionalNumber(value.error.colno)
+  );
+}
+
 function escapeScriptContent(value: string) {
   return value.replace(/<\/script/gi, "<\\/script");
 }
 
 function escapeStyleContent(value: string) {
   return value.replace(/<\/style/gi, "<\\/style");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isOptionalString(value: unknown) {
+  return value === undefined || typeof value === "string";
+}
+
+function isOptionalNumber(value: unknown) {
+  return value === undefined || typeof value === "number";
 }
