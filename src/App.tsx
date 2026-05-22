@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Code2,
   Copy,
@@ -32,6 +32,7 @@ import {
 import { starterProject, type Project } from "@/lib/project";
 import { decodeProjectFromShare, encodeProjectForShare } from "@/lib/share";
 import { saveProject } from "@/lib/storage";
+import { cn } from "@/lib/utils";
 import { useDocumentStore } from "@/stores/document-store";
 
 const appTitle = import.meta.env.VITE_APP_TITLE || "MCT Playground";
@@ -47,6 +48,7 @@ type SaveStatus = {
 };
 
 type ThemeMode = "light" | "dark";
+type MobileTabId = "html" | "css" | "js" | "preview";
 
 export function App() {
   return (
@@ -93,6 +95,7 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>(readInitialTheme);
   const [isDesktopSplit, setIsDesktopSplit] = useState(readInitialIsDesktopSplit);
+  const [activeMobileTab, setActiveMobileTab] = useState<MobileTabId>("html");
   const panelLayout = useDefaultLayout({
     id: mainPanelStorageKey,
     panelIds: ["editors", "preview"],
@@ -308,6 +311,29 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
       onChange: setJs,
     },
   ];
+  const sharedProjectContent = sharedToken ? (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle>Shared project route</CardTitle>
+        <CardDescription>
+          {shareError
+            ? "The shared link could not be decoded."
+            : "Decoded shared project loaded into the editors."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {shareError ? (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+            {shareError}
+          </div>
+        ) : (
+          <code className="block overflow-hidden text-ellipsis whitespace-nowrap rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs text-muted-foreground">
+            {sharedToken}
+          </code>
+        )}
+      </CardContent>
+    </Card>
+  ) : null;
   const editorsContent = (
     <section className="grid gap-4" aria-labelledby="editors-heading">
       <div className="flex items-center justify-between">
@@ -319,29 +345,7 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
         </span>
       </div>
 
-      {sharedToken ? (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>Shared project route</CardTitle>
-            <CardDescription>
-              {shareError
-                ? "The shared link could not be decoded."
-                : "Decoded shared project loaded into the editors."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {shareError ? (
-              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-                {shareError}
-              </div>
-            ) : (
-              <code className="block overflow-hidden text-ellipsis whitespace-nowrap rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs text-muted-foreground">
-                {sharedToken}
-              </code>
-            )}
-          </CardContent>
-        </Card>
-      ) : null}
+      {sharedProjectContent}
 
       <div className="grid gap-4 lg:grid-rows-3">
         {editorPanels.map((panel) => (
@@ -393,6 +397,56 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
       </Card>
     </section>
   );
+  const mobileTabPanels: Array<{ id: MobileTabId; label: string; content: ReactNode }> = [
+    {
+      id: "html",
+      label: "HTML",
+      content: (
+        <CodeEditor
+          label="HTML"
+          language="html"
+          theme={monacoTheme}
+          value={html}
+          onChange={setHtml}
+          height="calc(100vh - 14rem)"
+        />
+      ),
+    },
+    {
+      id: "css",
+      label: "CSS",
+      content: (
+        <CodeEditor
+          label="CSS"
+          language="css"
+          theme={monacoTheme}
+          value={css}
+          onChange={setCss}
+          height="calc(100vh - 14rem)"
+        />
+      ),
+    },
+    {
+      id: "js",
+      label: "JS",
+      content: (
+        <CodeEditor
+          label="JavaScript"
+          language="javascript"
+          theme={monacoTheme}
+          value={js}
+          onChange={setJs}
+          height="calc(100vh - 14rem)"
+        />
+      ),
+    },
+    {
+      id: "preview",
+      label: "Preview",
+      content: previewContent,
+    },
+  ];
+  const activeMobilePanel = mobileTabPanels.find((tab) => tab.id === activeMobileTab);
 
   if (isPreviewFullscreen) {
     return (
@@ -434,7 +488,10 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
             </div>
           </div>
 
-          <nav className="flex items-center gap-2" aria-label="Playground actions">
+          <nav
+            className="flex w-full items-center gap-2 overflow-x-auto pb-1 lg:w-auto lg:overflow-visible lg:pb-0"
+            aria-label="Playground actions"
+          >
             <Button
               type="button"
               variant="outline"
@@ -545,8 +602,43 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
           </Group>
         ) : (
           <div className="grid gap-4">
-            {editorsContent}
-            {previewContent}
+            {sharedProjectContent}
+            <div className="sticky top-28 z-10 -mx-4 border-y border-border bg-background/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
+              <div
+                className="grid grid-cols-4 gap-2"
+                role="tablist"
+                aria-label="Mobile playground panels"
+              >
+                {mobileTabPanels.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    id={`mobile-tab-${tab.id}`}
+                    role="tab"
+                    aria-selected={activeMobileTab === tab.id}
+                    aria-controls={`mobile-panel-${tab.id}`}
+                    className={cn(
+                      "flex min-h-12 items-center justify-center rounded-md border border-border px-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      activeMobileTab === tab.id
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    )}
+                    onClick={() => setActiveMobileTab(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {activeMobilePanel ? (
+              <div
+                id={`mobile-panel-${activeMobilePanel.id}`}
+                role="tabpanel"
+                aria-labelledby={`mobile-tab-${activeMobilePanel.id}`}
+              >
+                {activeMobilePanel.content}
+              </div>
+            ) : null}
           </div>
         )}
       </main>
