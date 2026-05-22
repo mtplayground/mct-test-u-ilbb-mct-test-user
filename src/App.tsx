@@ -1,9 +1,11 @@
 import { Code2, Eye, Play, Save, Share2 } from "lucide-react";
+import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const appTitle = import.meta.env.VITE_APP_TITLE || "MCT Playground";
+const routerBasename = getRouterBasename(import.meta.env.VITE_BASE_PATH);
 
 const editorPanels = [
   {
@@ -25,6 +27,26 @@ const editorPanels = [
 
 export function App() {
   return (
+    <BrowserRouter basename={routerBasename}>
+      <Routes>
+        <Route path="/" element={<PlaygroundPage />} />
+        <Route path="/p/:encoded" element={<SharedPlaygroundRoute />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+function SharedPlaygroundRoute() {
+  const { encoded } = useParams<{ encoded: string }>();
+
+  return <PlaygroundPage sharedToken={encoded} />;
+}
+
+function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
+  const routeLabel = sharedToken ? "Shared link route" : "Static playground shell";
+
+  return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
@@ -36,7 +58,7 @@ export function App() {
               <h1 id="app-title" className="truncate text-lg font-semibold tracking-normal">
                 {appTitle}
               </h1>
-              <p className="text-sm text-muted-foreground">Static playground shell</p>
+              <p className="text-sm text-muted-foreground">{routeLabel}</p>
             </div>
           </div>
 
@@ -67,9 +89,25 @@ export function App() {
               Editors
             </h2>
             <span className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
-              Placeholder
+              {sharedToken ? "Decode pending" : "Placeholder"}
             </span>
           </div>
+
+          {sharedToken ? (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle>Shared project route</CardTitle>
+                <CardDescription>
+                  Decode and store hydration will be implemented with the sharing utilities.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <code className="block overflow-hidden text-ellipsis whitespace-nowrap rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs text-muted-foreground">
+                  {sharedToken}
+                </code>
+              </CardContent>
+            </Card>
+          ) : null}
 
           <div className="grid gap-4 lg:grid-rows-3">
             {editorPanels.map((panel) => (
@@ -117,4 +155,12 @@ export function App() {
       </main>
     </div>
   );
+}
+
+function getRouterBasename(basePath: string) {
+  if (!basePath || basePath === "/") {
+    return undefined;
+  }
+
+  return `/${basePath.replace(/^\/|\/$/g, "")}`;
 }
