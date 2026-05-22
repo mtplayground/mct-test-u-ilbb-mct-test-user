@@ -1,6 +1,7 @@
 import { Code2, Eye, Play, Save, Share2 } from "lucide-react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 
+import { CodeEditor } from "@/components/code-editor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDocumentStore } from "@/stores/document-store";
@@ -32,21 +33,27 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   const html = useDocumentStore((state) => state.html);
   const css = useDocumentStore((state) => state.css);
   const js = useDocumentStore((state) => state.js);
+  const setHtml = useDocumentStore((state) => state.setHtml);
+  const setCss = useDocumentStore((state) => state.setCss);
+  const setJs = useDocumentStore((state) => state.setJs);
   const editorPanels = [
     {
       title: "HTML",
-      description: "Structure",
-      preview: html,
+      language: "html",
+      value: html,
+      onChange: setHtml,
     },
     {
       title: "CSS",
-      description: "Presentation",
-      preview: css,
+      language: "css",
+      value: css,
+      onChange: setCss,
     },
     {
-      title: "JS",
-      description: "Behavior",
-      preview: js,
+      title: "JavaScript",
+      language: "javascript",
+      value: js,
+      onChange: setJs,
     },
   ];
 
@@ -115,17 +122,15 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
 
           <div className="grid gap-4 lg:grid-rows-3">
             {editorPanels.map((panel) => (
-              <Card key={panel.title} className="overflow-hidden">
-                <CardHeader className="border-b border-border">
-                  <CardTitle>{panel.title}</CardTitle>
-                  <CardDescription>{panel.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="bg-muted/40 p-4">
-                  <pre className="min-h-24 overflow-hidden whitespace-pre-wrap rounded-md border border-border bg-background p-3 font-mono text-sm leading-6 text-muted-foreground">
-                    {panel.preview}
-                  </pre>
-                </CardContent>
-              </Card>
+              <CodeEditor
+                key={panel.title}
+                label={panel.title}
+                language={panel.language}
+                theme="vs"
+                value={panel.value}
+                onChange={panel.onChange}
+                height="18rem"
+              />
             ))}
           </div>
         </section>
