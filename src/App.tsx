@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { starterProject } from "@/lib/project";
 
 const appTitle = import.meta.env.VITE_APP_TITLE || "MCT Playground";
 const routerBasename = getRouterBasename(import.meta.env.VITE_BASE_PATH);
@@ -11,17 +12,17 @@ const editorPanels = [
   {
     title: "HTML",
     description: "Structure",
-    preview: "<main>\n  <h1>Hello playground</h1>\n</main>",
+    preview: starterProject.html,
   },
   {
     title: "CSS",
     description: "Presentation",
-    preview: ".button {\n  border-radius: 8px;\n}",
+    preview: starterProject.css,
   },
   {
     title: "JS",
     description: "Behavior",
-    preview: "document.querySelector('button')\n  ?.addEventListener('click', run);",
+    preview: starterProject.js,
   },
 ];
 
@@ -139,7 +140,7 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
 
           <Card className="min-h-[32rem] overflow-hidden">
             <CardHeader className="border-b border-border">
-              <CardTitle>Live result</CardTitle>
+              <CardTitle>{starterProject.title}</CardTitle>
               <CardDescription>Preview iframe placeholder</CardDescription>
             </CardHeader>
             <CardContent className="grid min-h-[26rem] place-items-center bg-muted/40 p-4">
