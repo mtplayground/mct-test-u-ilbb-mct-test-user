@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Code2, Copy, Eye, FolderOpen, Play, RotateCcw, Save, Share2 } from "lucide-react";
+import {
+  Code2,
+  Copy,
+  Eye,
+  FolderOpen,
+  Maximize2,
+  Minimize2,
+  Play,
+  RotateCcw,
+  Save,
+  Share2,
+} from "lucide-react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 
 import { CodeEditor } from "@/components/code-editor";
@@ -72,6 +83,7 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   const [shareError, setShareError] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
   const hasStarterChanges =
     title !== starterProject.title ||
     html !== starterProject.html ||
@@ -264,6 +276,30 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
     },
   ];
 
+  if (isPreviewFullscreen) {
+    return (
+      <div className="fixed inset-0 z-50 bg-background">
+        <PreviewFrame
+          ref={previewRef}
+          srcDoc={previewSrcDoc}
+          title={`${title} preview`}
+          className="h-screen"
+        />
+        <div className="fixed right-4 top-4 z-10 flex items-center gap-2">
+          {previewError ? (
+            <div className="max-w-md">
+              <ErrorBanner error={previewError} onDismiss={() => setPreviewError(null)} />
+            </div>
+          ) : null}
+          <Button type="button" onClick={() => setIsPreviewFullscreen(false)}>
+            <Minimize2 className="h-4 w-4" aria-hidden="true" />
+            Exit Preview
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
@@ -414,7 +450,18 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
             >
               Preview
             </h2>
-            <Eye className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <div className="flex items-center gap-2">
+              <Eye className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsPreviewFullscreen(true)}
+              >
+                <Maximize2 className="h-4 w-4" aria-hidden="true" />
+                Fullscreen
+              </Button>
+            </div>
           </div>
 
           {previewError ? (
