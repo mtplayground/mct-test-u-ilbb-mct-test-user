@@ -3,28 +3,10 @@ import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { starterProject } from "@/lib/project";
+import { useDocumentStore } from "@/stores/document-store";
 
 const appTitle = import.meta.env.VITE_APP_TITLE || "MCT Playground";
 const routerBasename = getRouterBasename(import.meta.env.VITE_BASE_PATH);
-
-const editorPanels = [
-  {
-    title: "HTML",
-    description: "Structure",
-    preview: starterProject.html,
-  },
-  {
-    title: "CSS",
-    description: "Presentation",
-    preview: starterProject.css,
-  },
-  {
-    title: "JS",
-    description: "Behavior",
-    preview: starterProject.js,
-  },
-];
 
 export function App() {
   return (
@@ -46,6 +28,27 @@ function SharedPlaygroundRoute() {
 
 function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   const routeLabel = sharedToken ? "Shared link route" : "Static playground shell";
+  const title = useDocumentStore((state) => state.title);
+  const html = useDocumentStore((state) => state.html);
+  const css = useDocumentStore((state) => state.css);
+  const js = useDocumentStore((state) => state.js);
+  const editorPanels = [
+    {
+      title: "HTML",
+      description: "Structure",
+      preview: html,
+    },
+    {
+      title: "CSS",
+      description: "Presentation",
+      preview: css,
+    },
+    {
+      title: "JS",
+      description: "Behavior",
+      preview: js,
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -140,7 +143,7 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
 
           <Card className="min-h-[32rem] overflow-hidden">
             <CardHeader className="border-b border-border">
-              <CardTitle>{starterProject.title}</CardTitle>
+              <CardTitle>{title}</CardTitle>
               <CardDescription>Preview iframe placeholder</CardDescription>
             </CardHeader>
             <CardContent className="grid min-h-[26rem] place-items-center bg-muted/40 p-4">
