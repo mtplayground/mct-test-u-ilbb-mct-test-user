@@ -6,10 +6,12 @@ import {
   FolderOpen,
   Maximize2,
   Minimize2,
+  Moon,
   Play,
   RotateCcw,
   Save,
   Share2,
+  Sun,
 } from "lucide-react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 
@@ -34,12 +36,15 @@ import { useDocumentStore } from "@/stores/document-store";
 const appTitle = import.meta.env.VITE_APP_TITLE || "MCT Playground";
 const routerBasename = getRouterBasename(import.meta.env.VITE_BASE_PATH);
 const autoRunStorageKey = "mct-playground-auto-run";
+const themeStorageKey = "mct-playground-theme";
 const autoRunDelayMs = 400;
 
 type SaveStatus = {
   tone: "success" | "error";
   message: string;
 };
+
+type ThemeMode = "light" | "dark";
 
 export function App() {
   return (
@@ -84,6 +89,9 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
+  const [theme, setTheme] = useState<ThemeMode>(readInitialTheme);
+  const isDarkTheme = theme === "dark";
+  const monacoTheme = isDarkTheme ? "vs-dark" : "vs";
   const hasStarterChanges =
     title !== starterProject.title ||
     html !== starterProject.html ||
@@ -183,6 +191,9 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
 
     resetToStarter();
   }, [hasStarterChanges, resetToStarter]);
+  const toggleTheme = useCallback(() => {
+    setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"));
+  }, []);
 
   useEffect(() => {
     if (!toast) {
@@ -229,6 +240,11 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   useEffect(() => {
     window.localStorage.setItem(autoRunStorageKey, String(isAutoRun));
   }, [isAutoRun]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDarkTheme);
+    window.localStorage.setItem(themeStorageKey, theme);
+  }, [isDarkTheme, theme]);
 
   useEffect(() => {
     if (!isAutoRun) {
@@ -317,6 +333,20 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
           </div>
 
           <nav className="flex items-center gap-2" aria-label="Playground actions">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={toggleTheme}
+              aria-pressed={isDarkTheme}
+            >
+              {isDarkTheme ? (
+                <Moon className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Sun className="h-4 w-4" aria-hidden="true" />
+              )}
+              {isDarkTheme ? "Dark" : "Light"}
+            </Button>
             <label className="flex h-9 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm text-muted-foreground">
               <input
                 type="checkbox"
@@ -433,7 +463,7 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
                 key={panel.title}
                 label={panel.title}
                 language={panel.language}
-                theme="vs"
+                theme={monacoTheme}
                 value={panel.value}
                 onChange={panel.onChange}
                 height="18rem"
@@ -503,6 +533,20 @@ function readInitialAutoRun() {
   }
 
   return storedValue === "true";
+}
+
+function readInitialTheme(): ThemeMode {
+  if (typeof window === "undefined") {
+    return "light";
+  }
+
+  const storedValue = window.localStorage.getItem(themeStorageKey);
+
+  if (storedValue === "light" || storedValue === "dark") {
+    return storedValue;
+  }
+
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 function createProjectId() {
