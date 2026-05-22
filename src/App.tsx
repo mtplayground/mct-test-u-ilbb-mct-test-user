@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Code2, Copy, Eye, FolderOpen, Play, Save, Share2 } from "lucide-react";
+import { Code2, Copy, Eye, FolderOpen, Play, RotateCcw, Save, Share2 } from "lucide-react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 
 import { CodeEditor } from "@/components/code-editor";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorBanner } from "@/components/error-banner";
 import { LoadDialog } from "@/components/load-dialog";
 import { PreviewFrame, type PreviewFrameHandle } from "@/components/preview-frame";
@@ -14,7 +15,7 @@ import {
   isPreviewErrorMessage,
   type PreviewErrorPayload,
 } from "@/lib/document-builder";
-import type { Project } from "@/lib/project";
+import { starterProject, type Project } from "@/lib/project";
 import { decodeProjectFromShare, encodeProjectForShare } from "@/lib/share";
 import { saveProject } from "@/lib/storage";
 import { useDocumentStore } from "@/stores/document-store";
@@ -70,6 +71,12 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   const [isLoadOpen, setIsLoadOpen] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const hasStarterChanges =
+    title !== starterProject.title ||
+    html !== starterProject.html ||
+    css !== starterProject.css ||
+    js !== starterProject.js;
   const runPreview = useCallback(() => {
     setPreviewError(null);
     setPreviewSrcDoc(latestSrcDoc);
@@ -142,6 +149,28 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
       setToast({ tone: "error", message: getErrorMessage(error) });
     }
   }, [css, html, js, title]);
+  const resetToStarter = useCallback(() => {
+    setCurrentProjectId(starterProject.id);
+    setDocument({
+      title: starterProject.title,
+      html: starterProject.html,
+      css: starterProject.css,
+      js: starterProject.js,
+    });
+    setPreviewError(null);
+    setPreviewSrcDoc(buildDocument(starterProject));
+    setShareError(null);
+    setSaveStatus({ tone: "success", message: "Reset to starter" });
+    setIsResetConfirmOpen(false);
+  }, [setCurrentProjectId, setDocument]);
+  const handleReset = useCallback(() => {
+    if (hasStarterChanges) {
+      setIsResetConfirmOpen(true);
+      return;
+    }
+
+    resetToStarter();
+  }, [hasStarterChanges, resetToStarter]);
 
   useEffect(() => {
     if (!toast) {
@@ -293,6 +322,10 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
               <Share2 className="h-4 w-4" aria-hidden="true" />
               Share
             </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={handleReset}>
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              Reset
+            </Button>
             {saveStatus ? (
               <span
                 className={
@@ -311,6 +344,14 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
       {toast ? <Toast toast={toast} onDismiss={() => setToast(null)} /> : null}
 
       <LoadDialog open={isLoadOpen} onOpenChange={setIsLoadOpen} onLoad={handleLoadProject} />
+      <ConfirmDialog
+        open={isResetConfirmOpen}
+        title="Reset to starter?"
+        description="This will discard any unsaved changes in the editor and restore the starter project."
+        confirmLabel="Reset"
+        onConfirm={resetToStarter}
+        onCancel={() => setIsResetConfirmOpen(false)}
+      />
 
       <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.8fr)]">
         <section className="grid gap-4" aria-labelledby="editors-heading">
