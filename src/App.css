@@ -3,6 +3,10 @@
 }
 
 .app {
+  background:
+    radial-gradient(circle at top left, hsl(var(--primary) / 0.12), transparent 32rem),
+    hsl(var(--background));
+  color: hsl(var(--foreground));
   display: grid;
   min-height: 100vh;
   place-items: center;
@@ -15,7 +19,7 @@
 
 .app__eyebrow {
   margin: 0 0 0.75rem;
-  color: #546179;
+  color: hsl(var(--muted-foreground));
   font-size: 0.875rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -24,14 +28,14 @@
 
 .app__intro h1 {
   margin: 0;
-  color: #172033;
+  color: hsl(var(--foreground));
   font-size: clamp(2.5rem, 8vw, 5rem);
   line-height: 0.95;
 }
 
 .app__intro p {
   margin: 1.5rem 0 0;
-  color: #3e4a5f;
+  color: hsl(var(--muted-foreground));
   font-size: 1.125rem;
   line-height: 1.7;
 }

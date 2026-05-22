@@ -6,6 +6,8 @@ A Vite, React, and TypeScript playground foundation.
 
 - `npm run dev` starts the local Vite dev server.
 - `npm run build` type-checks and builds the production bundle.
+- `npm run lint` checks TypeScript and React source with ESLint.
+- `npm run format:check` verifies formatting with Prettier.
 - `npm run preview` serves the production build locally.
 
 ## Environment
