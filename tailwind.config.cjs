@@ -15,6 +15,8 @@ module.exports = {
         "secondary-foreground": "hsl(var(--secondary-foreground) / <alpha-value>)",
         accent: "hsl(var(--accent) / <alpha-value>)",
         "accent-foreground": "hsl(var(--accent-foreground) / <alpha-value>)",
+        destructive: "hsl(var(--destructive) / <alpha-value>)",
+        "destructive-foreground": "hsl(var(--destructive-foreground) / <alpha-value>)",
         border: "hsl(var(--border) / <alpha-value>)",
         input: "hsl(var(--input) / <alpha-value>)",
         ring: "hsl(var(--ring) / <alpha-value>)",

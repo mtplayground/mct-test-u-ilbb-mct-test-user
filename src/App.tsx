@@ -3,10 +3,15 @@ import { Code2, Eye, Play, Save, Share2 } from "lucide-react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 
 import { CodeEditor } from "@/components/code-editor";
+import { ErrorBanner } from "@/components/error-banner";
 import { PreviewFrame, type PreviewFrameHandle } from "@/components/preview-frame";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { buildDocument } from "@/lib/document-builder";
+import {
+  buildDocument,
+  isPreviewErrorMessage,
+  type PreviewErrorPayload,
+} from "@/lib/document-builder";
 import { useDocumentStore } from "@/stores/document-store";
 
 const appTitle = import.meta.env.VITE_APP_TITLE || "MCT Playground";
@@ -44,8 +49,10 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   const latestSrcDoc = useMemo(() => buildDocument({ html, css, js }), [html, css, js]);
   const previewRef = useRef<PreviewFrameHandle>(null);
   const [previewSrcDoc, setPreviewSrcDoc] = useState(latestSrcDoc);
+  const [previewError, setPreviewError] = useState<PreviewErrorPayload | null>(null);
   const [isAutoRun, setIsAutoRun] = useState(readInitialAutoRun);
   const runPreview = useCallback(() => {
+    setPreviewError(null);
     setPreviewSrcDoc(latestSrcDoc);
     previewRef.current?.refresh();
   }, [latestSrcDoc]);
@@ -60,11 +67,24 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
     }
 
     const timeoutId = window.setTimeout(() => {
+      setPreviewError(null);
       setPreviewSrcDoc(latestSrcDoc);
     }, autoRunDelayMs);
 
     return () => window.clearTimeout(timeoutId);
   }, [isAutoRun, latestSrcDoc]);
+
+  useEffect(() => {
+    const handlePreviewMessage = (event: MessageEvent<unknown>) => {
+      if (isPreviewErrorMessage(event.data)) {
+        setPreviewError(event.data.error);
+      }
+    };
+
+    window.addEventListener("message", handlePreviewMessage);
+
+    return () => window.removeEventListener("message", handlePreviewMessage);
+  }, []);
 
   const editorPanels = [
     {
@@ -184,6 +204,10 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
             </h2>
             <Eye className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </div>
+
+          {previewError ? (
+            <ErrorBanner error={previewError} onDismiss={() => setPreviewError(null)} />
+          ) : null}
 
           <Card className="min-h-[32rem] overflow-hidden">
             <CardHeader className="border-b border-border">
