@@ -6,6 +6,7 @@ import { CodeEditor } from "@/components/code-editor";
 import { ErrorBanner } from "@/components/error-banner";
 import { LoadDialog } from "@/components/load-dialog";
 import { PreviewFrame, type PreviewFrameHandle } from "@/components/preview-frame";
+import { Toast, type ToastMessage } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -14,7 +15,7 @@ import {
   type PreviewErrorPayload,
 } from "@/lib/document-builder";
 import type { Project } from "@/lib/project";
-import { decodeProjectFromShare } from "@/lib/share";
+import { decodeProjectFromShare, encodeProjectForShare } from "@/lib/share";
 import { saveProject } from "@/lib/storage";
 import { useDocumentStore } from "@/stores/document-store";
 
@@ -68,6 +69,7 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus | null>(null);
   const [isLoadOpen, setIsLoadOpen] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
   const runPreview = useCallback(() => {
     setPreviewError(null);
     setPreviewSrcDoc(latestSrcDoc);
@@ -129,6 +131,27 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
     },
     [setCurrentProjectId, setDocument],
   );
+  const handleShare = useCallback(async () => {
+    try {
+      const encoded = encodeProjectForShare({ title, html, css, js });
+      const shareUrl = buildShareUrl(encoded);
+
+      await copyTextToClipboard(shareUrl);
+      setToast({ tone: "success", message: "Share link copied" });
+    } catch (error) {
+      setToast({ tone: "error", message: getErrorMessage(error) });
+    }
+  }, [css, html, js, title]);
+
+  useEffect(() => {
+    if (!toast) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setToast(null), 2500);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [toast]);
 
   useEffect(() => {
     if (!sharedToken) {
@@ -266,7 +289,7 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
               <Copy className="h-4 w-4" aria-hidden="true" />
               Save As
             </Button>
-            <Button type="button" variant="secondary" size="sm">
+            <Button type="button" variant="secondary" size="sm" onClick={handleShare}>
               <Share2 className="h-4 w-4" aria-hidden="true" />
               Share
             </Button>
@@ -284,6 +307,8 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
           </nav>
         </div>
       </header>
+
+      {toast ? <Toast toast={toast} onDismiss={() => setToast(null)} /> : null}
 
       <LoadDialog open={isLoadOpen} onOpenChange={setIsLoadOpen} onLoad={handleLoadProject} />
 
@@ -404,6 +429,35 @@ function createForkedTitle(title: string) {
   const trimmedTitle = title.trim();
 
   return trimmedTitle ? `${trimmedTitle} Copy` : "Untitled Project Copy";
+}
+
+function buildShareUrl(encoded: string) {
+  const basePath = getRouterBasename(import.meta.env.VITE_BASE_PATH) ?? "";
+  const sharePath = `${basePath}/p/${encoded}`.replace(/\/{2,}/g, "/");
+
+  return new URL(sharePath, window.location.origin).toString();
+}
+
+async function copyTextToClipboard(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = value;
+  textArea.style.position = "fixed";
+  textArea.style.left = "-9999px";
+
+  document.body.append(textArea);
+  textArea.focus();
+  textArea.select();
+
+  try {
+    document.execCommand("copy");
+  } finally {
+    textArea.remove();
+  }
 }
 
 function getErrorMessage(error: unknown) {
