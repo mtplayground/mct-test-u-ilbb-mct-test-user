@@ -1,9 +1,9 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Code2, Eye, Play, Save, Share2 } from "lucide-react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 
 import { CodeEditor } from "@/components/code-editor";
-import { PreviewFrame } from "@/components/preview-frame";
+import { PreviewFrame, type PreviewFrameHandle } from "@/components/preview-frame";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildDocument } from "@/lib/document-builder";
@@ -11,6 +11,8 @@ import { useDocumentStore } from "@/stores/document-store";
 
 const appTitle = import.meta.env.VITE_APP_TITLE || "MCT Playground";
 const routerBasename = getRouterBasename(import.meta.env.VITE_BASE_PATH);
+const autoRunStorageKey = "mct-playground-auto-run";
+const autoRunDelayMs = 400;
 
 export function App() {
   return (
@@ -39,7 +41,31 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   const setHtml = useDocumentStore((state) => state.setHtml);
   const setCss = useDocumentStore((state) => state.setCss);
   const setJs = useDocumentStore((state) => state.setJs);
-  const previewSrcDoc = useMemo(() => buildDocument({ html, css, js }), [html, css, js]);
+  const latestSrcDoc = useMemo(() => buildDocument({ html, css, js }), [html, css, js]);
+  const previewRef = useRef<PreviewFrameHandle>(null);
+  const [previewSrcDoc, setPreviewSrcDoc] = useState(latestSrcDoc);
+  const [isAutoRun, setIsAutoRun] = useState(readInitialAutoRun);
+  const runPreview = useCallback(() => {
+    setPreviewSrcDoc(latestSrcDoc);
+    previewRef.current?.refresh();
+  }, [latestSrcDoc]);
+
+  useEffect(() => {
+    window.localStorage.setItem(autoRunStorageKey, String(isAutoRun));
+  }, [isAutoRun]);
+
+  useEffect(() => {
+    if (!isAutoRun) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setPreviewSrcDoc(latestSrcDoc);
+    }, autoRunDelayMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isAutoRun, latestSrcDoc]);
+
   const editorPanels = [
     {
       title: "HTML",
@@ -78,7 +104,16 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
           </div>
 
           <nav className="flex items-center gap-2" aria-label="Playground actions">
-            <Button type="button" size="sm">
+            <label className="flex h-9 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-primary"
+                checked={isAutoRun}
+                onChange={(event) => setIsAutoRun(event.currentTarget.checked)}
+              />
+              Auto Run
+            </label>
+            <Button type="button" size="sm" onClick={runPreview}>
               <Play className="h-4 w-4" aria-hidden="true" />
               Run
             </Button>
@@ -156,7 +191,7 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
               <CardDescription>Sandboxed iframe preview</CardDescription>
             </CardHeader>
             <CardContent className="h-[26rem] bg-muted/40 p-0">
-              <PreviewFrame srcDoc={previewSrcDoc} title={`${title} preview`} />
+              <PreviewFrame ref={previewRef} srcDoc={previewSrcDoc} title={`${title} preview`} />
             </CardContent>
           </Card>
         </section>
@@ -171,4 +206,18 @@ function getRouterBasename(basePath: string) {
   }
 
   return `/${basePath.replace(/^\/|\/$/g, "")}`;
+}
+
+function readInitialAutoRun() {
+  if (typeof window === "undefined") {
+    return true;
+  }
+
+  const storedValue = window.localStorage.getItem(autoRunStorageKey);
+
+  if (storedValue === null) {
+    return true;
+  }
+
+  return storedValue === "true";
 }
