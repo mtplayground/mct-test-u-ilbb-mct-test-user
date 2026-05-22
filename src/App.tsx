@@ -1,9 +1,12 @@
+import { useMemo } from "react";
 import { Code2, Eye, Play, Save, Share2 } from "lucide-react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 
 import { CodeEditor } from "@/components/code-editor";
+import { PreviewFrame } from "@/components/preview-frame";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { buildDocument } from "@/lib/document-builder";
 import { useDocumentStore } from "@/stores/document-store";
 
 const appTitle = import.meta.env.VITE_APP_TITLE || "MCT Playground";
@@ -36,6 +39,7 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   const setHtml = useDocumentStore((state) => state.setHtml);
   const setCss = useDocumentStore((state) => state.setCss);
   const setJs = useDocumentStore((state) => state.setJs);
+  const previewSrcDoc = useMemo(() => buildDocument({ html, css, js }), [html, css, js]);
   const editorPanels = [
     {
       title: "HTML",
@@ -149,15 +153,10 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
           <Card className="min-h-[32rem] overflow-hidden">
             <CardHeader className="border-b border-border">
               <CardTitle>{title}</CardTitle>
-              <CardDescription>Preview iframe placeholder</CardDescription>
+              <CardDescription>Sandboxed iframe preview</CardDescription>
             </CardHeader>
-            <CardContent className="grid min-h-[26rem] place-items-center bg-muted/40 p-4">
-              <div className="w-full max-w-sm rounded-lg border border-dashed border-border bg-background p-6 text-center">
-                <p className="text-sm font-medium">Preview surface</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Editor execution and iframe rendering will be connected in later issues.
-                </p>
-              </div>
+            <CardContent className="h-[26rem] bg-muted/40 p-0">
+              <PreviewFrame srcDoc={previewSrcDoc} title={`${title} preview`} />
             </CardContent>
           </Card>
         </section>
