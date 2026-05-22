@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Code2, Copy, Eye, Play, Save, Share2 } from "lucide-react";
+import { Code2, Copy, Eye, FolderOpen, Play, Save, Share2 } from "lucide-react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 
 import { CodeEditor } from "@/components/code-editor";
 import { ErrorBanner } from "@/components/error-banner";
+import { LoadDialog } from "@/components/load-dialog";
 import { PreviewFrame, type PreviewFrameHandle } from "@/components/preview-frame";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,6 +53,7 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   const js = useDocumentStore((state) => state.js);
   const currentProjectId = useDocumentStore((state) => state.currentProjectId);
   const setCurrentProjectId = useDocumentStore((state) => state.setCurrentProjectId);
+  const setDocument = useDocumentStore((state) => state.setDocument);
   const setTitle = useDocumentStore((state) => state.setTitle);
   const setHtml = useDocumentStore((state) => state.setHtml);
   const setCss = useDocumentStore((state) => state.setCss);
@@ -63,6 +65,7 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   const [isAutoRun, setIsAutoRun] = useState(readInitialAutoRun);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus | null>(null);
+  const [isLoadOpen, setIsLoadOpen] = useState(false);
   const runPreview = useCallback(() => {
     setPreviewError(null);
     setPreviewSrcDoc(latestSrcDoc);
@@ -107,6 +110,22 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
       setIsSaving(false);
     }
   }, [createCurrentProject, setCurrentProjectId, setTitle, title]);
+  const handleLoadProject = useCallback(
+    (project: Project) => {
+      setCurrentProjectId(project.id);
+      setDocument({
+        title: project.title,
+        html: project.html,
+        css: project.css,
+        js: project.js,
+      });
+      setPreviewError(null);
+      setPreviewSrcDoc(buildDocument(project));
+      setSaveStatus({ tone: "success", message: "Loaded" });
+      setIsLoadOpen(false);
+    },
+    [setCurrentProjectId, setDocument],
+  );
 
   useEffect(() => {
     window.localStorage.setItem(autoRunStorageKey, String(isAutoRun));
@@ -188,6 +207,10 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
               <Play className="h-4 w-4" aria-hidden="true" />
               Run
             </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsLoadOpen(true)}>
+              <FolderOpen className="h-4 w-4" aria-hidden="true" />
+              Load
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -226,6 +249,8 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
           </nav>
         </div>
       </header>
+
+      <LoadDialog open={isLoadOpen} onOpenChange={setIsLoadOpen} onLoad={handleLoadProject} />
 
       <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.8fr)]">
         <section className="grid gap-4" aria-labelledby="editors-heading">
