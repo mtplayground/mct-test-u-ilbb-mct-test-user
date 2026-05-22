@@ -28,6 +28,7 @@ export const PreviewFrame = forwardRef<PreviewFrameHandle, PreviewFrameProps>(
       <iframe
         key={refreshKey}
         title={title}
+        data-testid="preview-frame"
         sandbox="allow-scripts"
         srcDoc={srcDoc}
         className={cn("h-full w-full border-0 bg-white", className)}

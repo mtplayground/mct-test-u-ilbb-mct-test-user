@@ -22,7 +22,10 @@ export function CodeEditor({
   height = "16rem",
 }: CodeEditorProps) {
   return (
-    <section className={cn("overflow-hidden rounded-lg border border-border bg-card", className)}>
+    <section
+      className={cn("overflow-hidden rounded-lg border border-border bg-card", className)}
+      data-testid={`editor-${language}`}
+    >
       <header className="flex min-h-11 items-center justify-between border-b border-border bg-muted/40 px-3">
         <h3 className="text-sm font-medium text-card-foreground">{label}</h3>
         <span className="rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground">
