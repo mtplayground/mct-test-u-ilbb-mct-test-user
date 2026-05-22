@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Code2, Eye, Play, Save, Share2 } from "lucide-react";
+import { Code2, Copy, Eye, Play, Save, Share2 } from "lucide-react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 
 import { CodeEditor } from "@/components/code-editor";
@@ -12,12 +12,19 @@ import {
   isPreviewErrorMessage,
   type PreviewErrorPayload,
 } from "@/lib/document-builder";
+import type { Project } from "@/lib/project";
+import { saveProject } from "@/lib/storage";
 import { useDocumentStore } from "@/stores/document-store";
 
 const appTitle = import.meta.env.VITE_APP_TITLE || "MCT Playground";
 const routerBasename = getRouterBasename(import.meta.env.VITE_BASE_PATH);
 const autoRunStorageKey = "mct-playground-auto-run";
 const autoRunDelayMs = 400;
+
+type SaveStatus = {
+  tone: "success" | "error";
+  message: string;
+};
 
 export function App() {
   return (
@@ -43,6 +50,9 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   const html = useDocumentStore((state) => state.html);
   const css = useDocumentStore((state) => state.css);
   const js = useDocumentStore((state) => state.js);
+  const currentProjectId = useDocumentStore((state) => state.currentProjectId);
+  const setCurrentProjectId = useDocumentStore((state) => state.setCurrentProjectId);
+  const setTitle = useDocumentStore((state) => state.setTitle);
   const setHtml = useDocumentStore((state) => state.setHtml);
   const setCss = useDocumentStore((state) => state.setCss);
   const setJs = useDocumentStore((state) => state.setJs);
@@ -51,11 +61,52 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   const [previewSrcDoc, setPreviewSrcDoc] = useState(latestSrcDoc);
   const [previewError, setPreviewError] = useState<PreviewErrorPayload | null>(null);
   const [isAutoRun, setIsAutoRun] = useState(readInitialAutoRun);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus | null>(null);
   const runPreview = useCallback(() => {
     setPreviewError(null);
     setPreviewSrcDoc(latestSrcDoc);
     previewRef.current?.refresh();
   }, [latestSrcDoc]);
+  const createCurrentProject = useCallback(
+    (id: string, projectTitle = title): Project => ({
+      id,
+      title: projectTitle,
+      html,
+      css,
+      js,
+      updatedAt: new Date().toISOString(),
+    }),
+    [css, html, js, title],
+  );
+  const handleSave = useCallback(async () => {
+    setIsSaving(true);
+
+    try {
+      const savedProject = await saveProject(createCurrentProject(currentProjectId));
+      setCurrentProjectId(savedProject.id);
+      setSaveStatus({ tone: "success", message: "Saved" });
+    } catch (error) {
+      setSaveStatus({ tone: "error", message: getErrorMessage(error) });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [createCurrentProject, currentProjectId, setCurrentProjectId]);
+  const handleSaveAs = useCallback(async () => {
+    setIsSaving(true);
+
+    try {
+      const forkedTitle = createForkedTitle(title);
+      const savedProject = await saveProject(createCurrentProject(createProjectId(), forkedTitle));
+      setCurrentProjectId(savedProject.id);
+      setTitle(savedProject.title);
+      setSaveStatus({ tone: "success", message: "Saved copy" });
+    } catch (error) {
+      setSaveStatus({ tone: "error", message: getErrorMessage(error) });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [createCurrentProject, setCurrentProjectId, setTitle, title]);
 
   useEffect(() => {
     window.localStorage.setItem(autoRunStorageKey, String(isAutoRun));
@@ -137,14 +188,41 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
               <Play className="h-4 w-4" aria-hidden="true" />
               Run
             </Button>
-            <Button type="button" variant="outline" size="sm">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSave}
+              disabled={isSaving}
+            >
               <Save className="h-4 w-4" aria-hidden="true" />
               Save
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSaveAs}
+              disabled={isSaving}
+            >
+              <Copy className="h-4 w-4" aria-hidden="true" />
+              Save As
             </Button>
             <Button type="button" variant="secondary" size="sm">
               <Share2 className="h-4 w-4" aria-hidden="true" />
               Share
             </Button>
+            {saveStatus ? (
+              <span
+                className={
+                  saveStatus.tone === "error"
+                    ? "text-sm text-destructive"
+                    : "text-sm text-muted-foreground"
+                }
+              >
+                {saveStatus.message}
+              </span>
+            ) : null}
           </nav>
         </div>
       </header>
@@ -244,4 +322,26 @@ function readInitialAutoRun() {
   }
 
   return storedValue === "true";
+}
+
+function createProjectId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `project-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function createForkedTitle(title: string) {
+  const trimmedTitle = title.trim();
+
+  return trimmedTitle ? `${trimmedTitle} Copy` : "Untitled Project Copy";
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Unable to save project";
 }
