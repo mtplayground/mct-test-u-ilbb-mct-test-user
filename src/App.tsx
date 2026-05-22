@@ -14,6 +14,7 @@ import {
   type PreviewErrorPayload,
 } from "@/lib/document-builder";
 import type { Project } from "@/lib/project";
+import { decodeProjectFromShare } from "@/lib/share";
 import { saveProject } from "@/lib/storage";
 import { useDocumentStore } from "@/stores/document-store";
 
@@ -66,6 +67,7 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus | null>(null);
   const [isLoadOpen, setIsLoadOpen] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
   const runPreview = useCallback(() => {
     setPreviewError(null);
     setPreviewSrcDoc(latestSrcDoc);
@@ -121,11 +123,44 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
       });
       setPreviewError(null);
       setPreviewSrcDoc(buildDocument(project));
+      setShareError(null);
       setSaveStatus({ tone: "success", message: "Loaded" });
       setIsLoadOpen(false);
     },
     [setCurrentProjectId, setDocument],
   );
+
+  useEffect(() => {
+    if (!sharedToken) {
+      return;
+    }
+
+    let isActive = true;
+
+    queueMicrotask(() => {
+      if (!isActive) {
+        return;
+      }
+
+      try {
+        const sharedProject = decodeProjectFromShare(sharedToken);
+
+        setCurrentProjectId(createProjectId());
+        setDocument(sharedProject);
+        setPreviewError(null);
+        setPreviewSrcDoc(buildDocument(sharedProject));
+        setShareError(null);
+        setSaveStatus({ tone: "success", message: "Loaded shared project" });
+      } catch (error) {
+        setShareError(getErrorMessage(error));
+        setSaveStatus({ tone: "error", message: "Invalid share link" });
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [setCurrentProjectId, setDocument, sharedToken]);
 
   useEffect(() => {
     window.localStorage.setItem(autoRunStorageKey, String(isAutoRun));
@@ -262,7 +297,7 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
               Editors
             </h2>
             <span className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
-              {sharedToken ? "Decode pending" : "Placeholder"}
+              {sharedToken ? (shareError ? "Decode failed" : "Shared project") : "Placeholder"}
             </span>
           </div>
 
@@ -271,13 +306,21 @@ function PlaygroundPage({ sharedToken }: { sharedToken?: string }) {
               <CardHeader className="pb-3">
                 <CardTitle>Shared project route</CardTitle>
                 <CardDescription>
-                  Decode and store hydration will be implemented with the sharing utilities.
+                  {shareError
+                    ? "The shared link could not be decoded."
+                    : "Decoded shared project loaded into the editors."}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <code className="block overflow-hidden text-ellipsis whitespace-nowrap rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs text-muted-foreground">
-                  {sharedToken}
-                </code>
+                {shareError ? (
+                  <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                    {shareError}
+                  </div>
+                ) : (
+                  <code className="block overflow-hidden text-ellipsis whitespace-nowrap rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs text-muted-foreground">
+                    {sharedToken}
+                  </code>
+                )}
               </CardContent>
             </Card>
           ) : null}
